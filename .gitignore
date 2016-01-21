@@ -6,6 +6,7 @@
 *.o
 *.so
 *.so.*
+*.swp
 *.tokens
 .buildrev
 autom4te.cache
