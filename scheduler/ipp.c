@@ -2628,8 +2628,7 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
 	return;
       }
 
-      snprintf(dstfile, sizeof(dstfile), "%s/ppd/%s.ppd", ServerRoot,
-               printer->name);
+      cupsdGetPPDPath(dstfile, sizeof(dstfile), printer, 0);
 
      /*
       * The new file is a PPD file, so move the file over to the ppd
@@ -2659,7 +2658,7 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
       * Raw driver, remove any existing PPD file.
       */
 
-      snprintf(dstfile, sizeof(dstfile), "%s/ppd/%s.ppd", ServerRoot, printer->name);
+      cupsdGetPPDPath(dstfile, sizeof(dstfile), printer, 0);
       unlink(dstfile);
     }
     else if (strstr(ppd_name, "../"))
@@ -2673,7 +2672,7 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
       * PPD model file...
       */
 
-      snprintf(dstfile, sizeof(dstfile), "%s/ppd/%s.ppd", ServerRoot, printer->name);
+      cupsdGetPPDPath(dstfile, sizeof(dstfile), printer, 0);
 
       if (copy_model(con, ppd_name, dstfile))
       {
@@ -2722,8 +2721,7 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
                     sizeof(scheme), username, sizeof(username), host,
 		    sizeof(host), &port, resource, sizeof(resource));
 
-    snprintf(srcfile, sizeof(srcfile), "%s/ppd/%s.ppd", ServerRoot,
-	     printer->name);
+    cupsdGetPPDPath(srcfile, sizeof(srcfile), printer, 0);
     if ((ppd = _ppdOpenFile(srcfile, _PPD_LOCALIZATION_NONE)) != NULL)
     {
       for (ppdattr = ppdFindAttr(ppd, "cupsPortMonitor", NULL);
@@ -5284,7 +5282,7 @@ create_local_bg_thread(
       return (NULL);
     }
 
-    snprintf(toppd, sizeof(toppd), "%s/ppd/%s.ppd", ServerRoot, printer->name);
+    cupsdGetPPDPath(toppd, sizeof(toppd), printer, 0);
     if ((to = cupsdCreateConfFile(toppd, ConfigFilePerm)) == NULL)
     {
       cupsdLogMessage(CUPSD_LOG_ERROR, "%s: Unable to create PPD for printer: %s", printer->name, strerror(errno));
@@ -5928,11 +5926,9 @@ delete_printer(cupsd_client_t  *con,	/* I - Client connection */
   * Remove any old PPD or script files...
   */
 
-  snprintf(filename, sizeof(filename), "%s/ppd/%s.ppd", ServerRoot,
-           printer->name);
+  cupsdGetPPDPath(filename, sizeof(filename), printer, 0);
   unlink(filename);
-  snprintf(filename, sizeof(filename), "%s/ppd/%s.ppd.O", ServerRoot,
-           printer->name);
+  cupsdGetPPDPath(filename, sizeof(filename), printer, 1);
   unlink(filename);
 
   snprintf(filename, sizeof(filename), "%s/%s.png", CacheDir, printer->name);
@@ -7018,7 +7014,7 @@ get_ppd(cupsd_client_t  *con,		/* I - Client connection */
     * See if we need the PPD for a class or remote printer...
     */
 
-    snprintf(filename, sizeof(filename), "%s/ppd/%s.ppd", ServerRoot, dest->name);
+    cupsdGetPPDPath(filename, sizeof(filename), dest, 0);
 
     if ((dtype & CUPS_PRINTER_REMOTE) && access(filename, 0))
     {
@@ -7031,7 +7027,7 @@ get_ppd(cupsd_client_t  *con,		/* I - Client connection */
       for (i = 0; i < dest->num_printers; i ++)
         if (!(dest->printers[i]->type & CUPS_PRINTER_CLASS))
 	{
-	  snprintf(filename, sizeof(filename), "%s/ppd/%s.ppd", ServerRoot, dest->printers[i]->name);
+	  cupsdGetPPDPath(filename, sizeof(filename), dest->printers[i], 0);
 
           if (!access(filename, 0))
 	    break;
