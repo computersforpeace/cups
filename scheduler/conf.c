@@ -1215,7 +1215,7 @@ cupsdReadConfiguration(void)
 			     Group, 0, 0) < 0 ||
        cupsdCheckPermissions(CupsFilesFile, NULL, ConfigFilePerm, RunUser,
 			     Group, 0, 0) < 0 ||
-       cupsdCheckPermissions(ServerRoot, "classes.conf", 0600, RunUser,
+       cupsdCheckPermissions(PrinterRoot, "classes.conf", 0600, RunUser,
 			     Group, 0, 0) < 0 ||
        cupsdCheckPermissions(PrinterRoot, "printers.conf", 0600, RunUser,
 			     Group, 0, 0) < 0 ||
