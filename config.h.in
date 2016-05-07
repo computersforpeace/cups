@@ -494,6 +494,12 @@
 
 #undef HAVE_SYSTEMD
 
+/*
+ * Do we have upstart support?
+ */
+
+#undef HAVE_UPSTART
+
 
 /*
  * Various scripting languages...

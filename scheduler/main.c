@@ -44,6 +44,11 @@ extern int launch_activate_socket(const char *name, int **fds, size_t *cnt);
 					/* Name of the systemd path file */
 #endif /* HAVE_SYSTEMD */
 
+#ifdef HAVE_UPSTART
+#  define CUPS_KEEPALIVE CUPS_CACHEDIR "/org.cups.cupsd"
+					/* Name of the upstart KeepAlive file */
+#endif
+
 #if defined(HAVE_MALLOC_H) && defined(HAVE_MALLINFO)
 #  include <malloc.h>
 #endif /* HAVE_MALLOC_H && HAVE_MALLINFO */
@@ -71,10 +76,10 @@ static void		sigchld_handler(int sig);
 static void		sighup_handler(int sig);
 static void		sigterm_handler(int sig);
 static long		select_timeout(int fds);
-#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD)
+#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD) || defined(HAVE_UPSTART)
 static void		service_checkin(void);
 static void		service_checkout(void);
-#endif /* HAVE_LAUNCHD || HAVE_SYSTEMD */
+#endif /* HAVE_LAUNCHD || HAVE_SYSTEMD || HAVE_UPSTART */
 static void		usage(int status) __attribute__((noreturn));
 
 
@@ -131,10 +136,10 @@ main(int  argc,				/* I - Number of command-line args */
 #else
   time_t		netif_time = 0;	/* Time since last network update */
 #endif /* __APPLE__ */
-#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD)
+#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD) || defined(HAVE_UPSTART)
   int			service_idle_exit;
 					/* Idle exit on select timeout? */
-#endif /* HAVE_LAUNCHD || HAVE_SYSTEMD */
+#endif /* HAVE_LAUNCHD || HAVE_SYSTEMD || HAVE_UPSTART */
 
 
 #ifdef HAVE_GETEUID
@@ -242,8 +247,8 @@ main(int  argc,				/* I - Number of command-line args */
 	      usage(0);
 	      break;
 
-          case 'l' : /* Started by launchd/systemd... */
-#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD)
+          case 'l' : /* Started by launchd/systemd/upstart... */
+#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD) || defined(HAVE_UPSTART)
 	      OnDemand   = 1;
 	      fg         = 1;
 	      close_all  = 0;
@@ -254,7 +259,7 @@ main(int  argc,				/* I - Number of command-line args */
               fg         = 0;
 	      disconnect = 1;
 	      close_all  = 1;
-#endif /* HAVE_LAUNCHD || HAVE_SYSTEMD */
+#endif /* HAVE_LAUNCHD || HAVE_SYSTEMD || HAVE_UPSTART */
 	      break;
 
           case 'p' : /* Stop immediately for profiling */
@@ -584,7 +589,7 @@ main(int  argc,				/* I - Number of command-line args */
 
   cupsdCleanFiles(CacheDir, "*.ipp");
 
-#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD)
+#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD) || defined(HAVE_UPSTART)
   if (OnDemand)
   {
    /*
@@ -595,7 +600,7 @@ main(int  argc,				/* I - Number of command-line args */
     service_checkin();
     service_checkout();
   }
-#endif /* HAVE_LAUNCHD || HAVE_SYSTEMD */
+#endif /* HAVE_LAUNCHD || HAVE_SYSTEMD || HAVE_UPSTART */
 
  /*
   * Startup the server...
@@ -682,11 +687,11 @@ main(int  argc,				/* I - Number of command-line args */
   * Send server-started event...
   */
 
-#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD)
+#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD) || defined(HAVE_UPSTART)
   if (OnDemand)
     cupsdAddEvent(CUPSD_EVENT_SERVER_STARTED, NULL, NULL, "Scheduler started on demand.");
   else
-#endif /* HAVE_LAUNCHD || HAVE_SYSTEMD */
+#endif /* HAVE_LAUNCHD || HAVE_SYSTEMD || HAVE_UPSTART */
   if (fg)
     cupsdAddEvent(CUPSD_EVENT_SERVER_STARTED, NULL, NULL, "Scheduler started in foreground.");
   else
@@ -809,7 +814,7 @@ main(int  argc,				/* I - Number of command-line args */
     if ((timeout = select_timeout(fds)) > 1 && LastEvent)
       timeout = 1;
 
-#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD)
+#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD) || defined(HAVE_UPSTART)
    /*
     * If no other work is scheduled and we're being controlled by
     * launchd then timeout after 'LaunchdTimeout' seconds of
@@ -828,7 +833,7 @@ main(int  argc,				/* I - Number of command-line args */
     }
     else
       service_idle_exit = 0;
-#endif	/* HAVE_LAUNCHD || HAVE_SYSTEMD */
+#endif	/* HAVE_LAUNCHD || HAVE_SYSTEMD || HAVE_UPSTART */
 
     if ((fds = cupsdDoSelect(timeout)) < 0)
     {
@@ -925,7 +930,7 @@ main(int  argc,				/* I - Number of command-line args */
     }
 #endif /* !__APPLE__ */
 
-#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD)
+#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD) || defined(HAVE_UPSTART)
    /*
     * If no other work was scheduled and we're being controlled by launchd
     * then timeout after 'LaunchdTimeout' seconds of inactivity...
@@ -939,7 +944,7 @@ main(int  argc,				/* I - Number of command-line args */
       stop_scheduler = 1;
       break;
     }
-#endif /* HAVE_LAUNCHD || HAVE_SYSTEMD */
+#endif /* HAVE_LAUNCHD || HAVE_SYSTEMD || HAVE_UPSTART */
 
    /*
     * Resume listening for new connections as needed...
@@ -1143,14 +1148,14 @@ main(int  argc,				/* I - Number of command-line args */
 
   cupsdStopServer();
 
-#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD)
+#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD) || defined(HAVE_UPSTART)
  /*
   * Update the keep-alive file as needed...
   */
 
   if (OnDemand)
     service_checkout();
-#endif /* HAVE_LAUNCHD || HAVE_SYSTEMD */
+#endif /* HAVE_LAUNCHD || HAVE_SYSTEMD || HAVE_UPSTART */
 
  /*
   * Stop all jobs...
@@ -1822,7 +1827,7 @@ sigterm_handler(int sig)		/* I - Signal number */
 }
 
 
-#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD)
+#if defined(HAVE_LAUNCHD) || defined(HAVE_SYSTEMD) || defined(HAVE_UPSTART)
 /*
  * 'service_checkin()' - Check-in with launchd and collect the listening fds.
  */
@@ -2057,7 +2062,7 @@ service_checkin(void)
   launch_data_free(ld_msg);
   launch_data_free(ld_resp);
 
-#  else /* HAVE_SYSTEMD */
+#  elif defined(HAVE_SYSTEMD)
   int			i,		/* Looping var */
 			count;		/* Number of listeners */
   cupsd_listener_t	*lis;		/* Listeners array */
@@ -2111,7 +2116,7 @@ service_checkin(void)
     * Add a new listener if there's no match...
     */
 
-    if (lis)
+    f (lis)
     {
       cupsdLogMessage(CUPSD_LOG_DEBUG, "service_checkin: Matched existing listener #%d to %s.", (int)i + 1, httpAddrString(&(lis->address), s, sizeof(s)));
     }
@@ -2138,6 +2143,118 @@ service_checkin(void)
       lis->encryption = HTTP_ENCRYPT_ALWAYS;
 #    endif /* HAVE_SSL */
   }
+#  elif defined(HAVE_UPSTART)
+  const char *e;
+  char *p = NULL;
+  int fd;
+  http_addr_t addr;
+  socklen_t addrlen = sizeof(http_addr_t);
+  cupsd_listener_t *lis;
+  char s[256];
+
+  if (!(e = getenv("UPSTART_EVENTS")))
+  {
+    cupsdLogMessage(CUPSD_LOG_ERROR,
+		    "upstart_checkin: We did not get started via Upstart.");
+    exit(EXIT_FAILURE);
+    return;
+  }
+
+  if (strcasecmp(e, "socket"))
+  {
+    cupsdLogMessage(CUPSD_LOG_ERROR,
+		    "upstart_checkin: We did not get triggered via an Upstart socket event.");
+    exit(EXIT_FAILURE);
+    return;
+  }
+
+  if (!(e = getenv("UPSTART_FDS")))
+  {
+    cupsdLogMessage(CUPSD_LOG_ERROR,
+		    "upstart_checkin: We got started via Upstart socket event but environment variable UPSTART_FDS is not set");
+    exit(EXIT_FAILURE);
+    return;
+  }
+
+  errno = 0;
+  cupsdLogMessage(CUPSD_LOG_ERROR, "raw UPSTART_FDS=%s", e);
+  //fd = strtoul(e, &p, 10);
+  fd = atoi(e);
+  cupsdLogMessage(CUPSD_LOG_ERROR, "computed FDS %i", fd);
+
+  if (errno != 0) {
+    cupsdLogMessage(CUPSD_LOG_ERROR,
+		    "upstart_checkin: We got started via Upstart socket event but environment variable UPSTART_FDS is not readable with error \"%s\".",
+		    strerror(errno));
+    exit(EXIT_FAILURE);
+    return;
+  }
+
+  if (!p || *p || fd <= 0) {
+    cupsdLogMessage(CUPSD_LOG_ERROR,
+		    "upstart_checkin: We got started via Upstart socket event but environment variable UPSTART_FDS has invalid value.");
+  }
+
+  /*fd = (int)l;*/
+  /*if (fd = accept((int)l, (struct sockaddr*) &addr, &addrlen))*/
+  if (getsockname(fd, (struct sockaddr*) &addr, &addrlen))
+  {
+    cupsdLogMessage(CUPSD_LOG_ERROR,
+		    "upstart_checkin: Unable to get local address - %s",
+		    strerror(errno));
+    exit(EXIT_FAILURE);
+    return;
+  }
+
+ /*
+  * Try to match the upstart socket address to one of the listeners...
+  */
+
+  for (lis = (cupsd_listener_t *)cupsArrayFirst(Listeners);
+       lis;
+       lis = (cupsd_listener_t *)cupsArrayNext(Listeners)) {
+	  cupsdLogMessage(CUPSD_LOG_ERROR, "upstart_checkin: array-address 1conf '%s'", httpAddrString(&(lis->address), s, sizeof(s)));
+	  cupsdLogMessage(CUPSD_LOG_ERROR, "upstart_checkin: array-address 2conf '%s'", httpAddrString(&lis->address, s, sizeof(s)));
+	  cupsdLogMessage(CUPSD_LOG_ERROR, "upstart_checkin: array-address 1prov '%s'", httpAddrString(&addr, s, sizeof(s)));
+	  if (httpAddrEqual(&lis->address, &addr))
+		  break;
+  }
+
+  if (lis)
+  {
+    cupsdLogMessage(CUPSD_LOG_DEBUG,
+		    "upstart_checkin: Matched existing listener %s with fd %d...",
+		    httpAddrString(&(lis->address), s, sizeof(s)), fd);
+    //l = accept(l, (struct sockaddr*) &addr, &addrlen);
+  }
+  else
+  {
+    cupsdLogMessage(CUPSD_LOG_DEBUG,
+		    "upstart_checkin: Adding new listener %s with fd %d...",
+		    httpAddrString(&addr, s, sizeof(s)), fd);
+
+    if ((lis = calloc(1, sizeof(cupsd_listener_t))) == NULL)
+    {
+      cupsdLogMessage(CUPSD_LOG_ERROR,
+		      "upstart_checkin: Unable to allocate listener - "
+		      "%s.", strerror(errno));
+      exit(EXIT_FAILURE);
+    }
+
+    cupsArrayAdd(Listeners, lis);
+
+    memcpy(&lis->address, &addr, sizeof(lis->address));
+  }
+
+  lis->fd = fd;
+
+#  ifdef HAVE_SSL
+  if (httpAddrPort(&(lis->address)) == 443)
+    lis->encryption = HTTP_ENCRYPT_ALWAYS;
+#  endif /* HAVE_SSL */
+
+#  else
+#  error "Bad defines"
 #  endif /* HAVE_LAUNCH_ACTIVATE_SOCKET */
 }
 
@@ -2174,7 +2291,7 @@ service_checkout(void)
     unlink(CUPS_KEEPALIVE);
   }
 }
-#endif /* HAVE_LAUNCHD || HAVE_SYSTEMD */
+#endif /* HAVE_LAUNCHD || HAVE_SYSTEMD || HAVE_UPSTART */
 
 
 /*
